@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>TraderPlace Dashboard</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:'Poppins',sans-serif;
+}
+
+body{
+background:#101722;
+color:white;
+}
+
+header{
+background:#1565c0;
+padding:18px;
+font-size:26px;
+font-weight:bold;
+text-align:center;
+}
+
+.card{
+background:#1b263b;
+margin:20px;
+padding:20px;
+border-radius:12px;
+}
+
+h2{
+margin-bottom:15px;
+}
+
+.balance{
+font-size:40px;
+font-weight:bold;
+margin-top:10px;
+}
+
+button{
+padding:14px 28px;
+border:none;
+border-radius:8px;
+font-size:17px;
+color:white;
+cursor:pointer;
+margin:8px;
+}
+
+.buy{
+background:#00a651;
+}
+
+.sell{
+background:#e53935;
+}
+
+.deposit{
+background:#1976d2;
+}
+
+.withdraw{
+background:#ff9800;
+}
+
+#chart{
+height:320px;
+margin:20px;
+border-radius:10px;
+overflow:hidden;
+}
+
+.trade-panel{
+background:#1b263b;
+margin:20px;
+padding:20px;
+border-radius:12px;
+}
+
+.trade-panel input,
+.trade-panel select{
+width:100%;
+padding:14px;
+margin:10px 0;
+border-radius:8px;
+border:none;
+font-size:16px;
+}
+
+#callBtn{
+background:green;
+width:100%;
+}
+
+#putBtn{
+background:red;
+width:100%;
+}
+
+#tradeStatus{
+margin-top:15px;
+font-size:18px;
+font-weight:bold;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+    TraderPlace Dashboard
+    <br>
+    <small id="welcomeUser"></small>
+</header>
+
+<div class="card">
+<h2>Account Balance</h2>
+<div class="balance">$<span id="balance">10000.00</span></div>
+</div>
+
+<div class="card">
+<h2>EUR/USD</h2>
+
+<p>Current Price: <span id="price">1.17250</span></p>
+
+<br>
+
+<button class="buy" onclick="buyTrade()">BUY</button>
+
+<button class="sell" onclick="sellTrade()">SELL</button>
+
+<br><br>
+
+<button class="deposit" onclick="location.href='deposit.html'">Deposit</button>
+
+<button class="withdraw" onclick="location.href='withdraw.html'">Withdraw</button>
+<button onclick="logoutUser()" style="background:#555;">
+    Logout
+</button>
+</div>
+
+<div class="card">
+
+<h2>Trading History</h2>
+
+<ul id="history">
+<li>No trades yet.</li>
+</ul>
+
+</div>
+
+<div class="tradingview-widget-container">
+    <div id="tradingview_chart" style="height:400px;"></div>
+</div>
+
+<script src="https://s3.tradingview.com/tv.js"></script>
+
+<script>
+new TradingView.widget({
+    "container_id": "tradingview_chart",
+    "width": "100%",
+    "height": 400,
+    "symbol": "FX:EURUSD",
+    "interval": "1",
+    "timezone": "Etc/UTC",
+    "theme": "dark",
+    "style": "1",
+    "locale": "en",
+    "toolbar_bg": "#1b263b",
+    "allow_symbol_change": true,
+    "hide_top_toolbar": false
+});
+</script>
+
+<div class="trade-panel">
+
+<h2>Binary Options</h2>
+
+<input type="number" id="stake" value="10">
+
+<select id="expiry">
+<option value="30">30 Seconds</option>
+<option value="60">1 Minute</option>
+<option value="300">5 Minutes</option>
+</select>
+
+<button id="callBtn">📈 CALL</button>
+
+<button id="putBtn">📉 PUT</button>
+
+<p id="tradeStatus">No active trade.</p>
+
+</div>
+<script>
+
+const loggedInEmail = localStorage.getItem("loggedInUser");
+
+if (!loggedInEmail) {
+    window.location.href = "login.html";
+}
+
+const user = JSON.parse(localStorage.getItem("user_" + loggedInEmail));
+document.getElementById("welcomeUser").innerText =
+    "Welcome, " + user.name;
+
+let balance = user.balance;
+
+document.getElementById("balance").innerText = balance.toFixed(2);
+
+function saveBalance(){
+    localStorage.setItem("balance", balance);
+    document.getElementById("balance").innerText = balance.toFixed(2);
+}
+
+function addHistory(text){
+    const list = document.getElementById("history");
+
+    if(list.children.length==1 && list.children[0].innerText=="No trades yet."){
+        list.innerHTML="";
+    }
+
+    let li=document.createElement("li");
+    li.innerText=text;
+    list.prepend(li);
+}
+
+function buyTrade(){
+
+    if(balance<100){
+        alert("Not enough balance");
+        return;
+    }
+
+    balance-=100;
+    saveBalance();
+
+    addHistory("BUY EUR/USD - $100");
+
+    alert("Buy order placed");
+
+}
+
+function sellTrade(){
+
+    if(balance<100){
+        alert("Not enough balance");
+        return;
+    }
+
+    balance-=100;
+    function saveBalance() {
+    user.balance = balance;
+    localStorage.setItem("user_" + loggedInEmail, JSON.stringify(user));
+    document.getElementById("balance").innerText = balance.toFixed(2);
+}
+
+    addHistory("SELL EUR/USD - $100");
+
+    alert("Sell order placed");
+
+}
+
+function binaryTrade(type){
+
+    let stake=Number(document.getElementById("stake").value);
+
+    let expiry=Number(document.getElementById("expiry").value);
+
+    if(balance<stake){
+        alert("Not enough balance");
+        return;
+    }
+
+    balance-=stake;
+    saveBalance();
+
+    document.getElementById("tradeStatus").innerText=
+    type+" trade running...";
+
+    setTimeout(function(){
+
+        let win=Math.random()>0.5;
+
+        if(win){
+
+            let payout=stake*1.8;
+
+            balance+=payout;
+
+            saveBalance();
+
+            addHistory("✅ "+type+" WIN +$"+(payout-stake).toFixed(2));
+
+            document.getElementById("tradeStatus").innerText=
+            "WIN +$"+(payout-stake).toFixed(2);
+
+        }else{
+
+            addHistory("❌ "+type+" LOSS -$"+stake);
+
+            document.getElementById("tradeStatus").innerText=
+            "LOSS -$"+stake;
+
+        }
+
+    },expiry*1000);
+
+}
+
+document.getElementById("callBtn").onclick=function(){
+    binaryTrade("CALL");
+};
+
+document.getElementById("putBtn").onclick=function(){
+    binaryTrade("PUT");
+};
+function logoutUser() {
+    localStorage.removeItem("loggedInUser");
+    window.location.href = "login.html";
+}
+</script>
+
+</body>
+</html>

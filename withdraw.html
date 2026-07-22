@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Withdraw</title>
+</head>
+<body>
+
+<h2>Withdraw</h2>
+
+<input type="number" id="amount" placeholder="Enter amount">
+<br><br>
+
+<button onclick="withdrawMoney()">Confirm Withdrawal</button>
+<br><br>
+
+<button onclick="window.location.href='dashboard.html'">Back</button>
+
+<script>
+function withdrawMoney() {
+    let amount = Number(document.getElementById("amount").value);
+
+    if (amount <= 0) {
+        alert("Enter a valid amount");
+        return;
+    }
+
+    let balance = Number(localStorage.getItem("balance")) || 10000;
+
+    if (amount > balance) {
+        alert("Insufficient balance!");
+        return;
+    }
+
+    balance -= amount;
+
+    localStorage.setItem("balance", balance);
+
+    alert("Withdrawal Successful!");
+
+    window.location.href = "dashboard.html";
+}
+</script>
+
+</body>
+</html>

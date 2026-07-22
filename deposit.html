@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Deposit</title>
+</head>
+<body>
+
+<h2>Deposit</h2>
+
+<input type="number" id="amount" placeholder="Enter amount">
+<br><br>
+
+<button onclick="deposit()">Confirm Deposit</button>
+<br><br>
+
+<button onclick="window.location.href='dashboard.html'">Back</button>
+
+<script>
+function deposit() {
+    let amount = Number(document.getElementById("amount").value);
+
+    if (amount <= 0) {
+        alert("Enter a valid amount");
+        return;
+    }
+
+    let balance = Number(localStorage.getItem("balance")) || 10000;
+    balance = balance + amount;
+
+    localStorage.setItem("balance", balance);
+
+    alert("Deposit Successful!");
+
+    window.location.href = "dashboard.html";
+}
+</script>
+
+</body>
+</html>
