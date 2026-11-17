@@ -1,0 +1,182 @@
+
+const express = require("express");
+
+const app = express();
+app.use(express.json());
+
+const PORT = process.env.PORT || 10000;
+
+const required = [
+  "MPESA_CONSUMER_KEY",
+  "MPESA_CONSUMER_SECRET",
+  "MPESA_PASSKEY",
+  "MPESA_SHORTCODE",
+  "CALLBACK_TOKEN"
+];
+
+function checkConfig() {
+  return required.every(key => process.env[key]);
+}
+
+function getTimestamp() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Nairobi",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(new Date());
+
+  const values = {};
+  parts.forEach(p => values[p.type] = p.value);
+
+  return values.year + values.month + values.day +
+    values.hour + values.minute + values.second;
+}
+
+function normalizePhone(phone) {
+  let p = String(phone).replace(/\s+/g, "");
+
+  if (p.startsWith("+")) p = p.substring(1);
+  if (p.startsWith("0")) p = "254" + p.substring(1);
+
+  if (!/^254[17]\d{8}$/.test(p)) {
+    throw new Error("Enter a valid Kenyan M-PESA number");
+  }
+
+  return p;
+}
+
+app.get("/", (req, res) => {
+  res.send("TraderPlace payment server is running.");
+});
+
+app.post("/api/mpesa/stkpush", async (req, res) => {
+  try {
+    if (!checkConfig()) {
+      return res.status(500).json({
+        error: "Payment server configuration is incomplete"
+      });
+    }
+
+    const amount = Number(req.body.amount);
+    const phone = normalizePhone(req.body.phone);
+
+    if (!Number.isInteger(amount) || amount < 1 || amount > 250000) {
+      return res.status(400).json({
+        error: "Enter a valid whole-number amount"
+      });
+    }
+
+    const shortcode = process.env.MPESA_SHORTCODE;
+    const timestamp = getTimestamp();
+    const password = Buffer.from(
+      shortcode + process.env.MPESA_PASSKEY + timestamp
+    ).toString("base64");
+
+    const sandbox = process.env.MPESA_ENV !== "production";
+    const baseUrl = sandbox
+      ? "https://sandbox.safaricom.co.ke"
+      : "https://api.safaricom.co.ke";
+
+    const auth = Buffer.from(
+      process.env.MPESA_CONSUMER_KEY + ":" +
+      process.env.MPESA_CONSUMER_SECRET
+    ).toString("base64");
+
+    const tokenResponse = await fetch(
+      baseUrl + "/oauth/v1/generate?grant_type=client_credentials",
+      {
+        headers: {
+          Authorization: "Basic " + auth
+        }
+      }
+    );
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenResponse.ok || !tokenData.access_token) {
+      throw new Error("Daraja authentication failed");
+    }
+
+    const callbackUrl =
+      process.env.CALLBACK_URL +
+      "?token=" + encodeURIComponent(process.env.CALLBACK_TOKEN);
+
+    const stkResponse = await fetch(
+      baseUrl + "/mpesa/stkpush/v1/processrequest",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + tokenData.access_token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          BusinessShortCode: shortcode,
+          Password: password,
+          Timestamp: timestamp,
+          TransactionType: "CustomerPayBillOnline",
+          Amount: amount,
+          PartyA: phone,
+          PartyB: shortcode,
+          PhoneNumber: phone,
+          CallBackURL: callbackUrl,
+          AccountReference: "TraderPlace",
+          TransactionDesc: "Trading account deposit"
+        })
+      }
+    );
+
+    const result = await stkResponse.json();
+
+    if (!stkResponse.ok || result.ResponseCode !== "0") {
+      return res.status(400).json({
+        error: result.errorMessage ||
+          result.ResponseDescription ||
+          "STK Push request failed"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Payment prompt sent. Check your phone.",
+      checkoutRequestID: result.CheckoutRequestID,
+      customerMessage: result.CustomerMessage
+    });
+
+  } catch (error) {
+    res.status(400).json({
+      error: error.message
+    });
+  }
+});
+
+app.post("/api/mpesa/callback", (req, res) => {
+  if (req.query.token !== process.env.CALLBACK_TOKEN) {
+    return res.status(403).json({ error: "Unauthorized callback" });
+  }
+
+  // Temporary test handler: do not credit balances here.
+  // A verified, persistent transaction ledger is required first.
+  const callback = req.body?.Body?.stkCallback;
+
+  if (callback) {
+    console.log("M-PESA callback received:", {
+      checkoutRequestID: callback.CheckoutRequestID,
+      resultCode: callback.ResultCode,
+      resultDescription: callback.ResultDesc
+    });
+  }
+
+  res.status(200).json({
+    ResultCode: 0,
+    ResultDesc: "Accepted"
+  });
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("TraderPlace server running on port " + PORT);
+});
